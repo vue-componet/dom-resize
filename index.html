@@ -17,182 +17,54 @@
       .testbox {
         width: 200px;
         height: 200px;
+        padding: 10px;
+        margin: 10px;
         background: wheat;
       }
-      .box {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        /* transform: translate(-50%, -50%) scaleX(1.5) rotateZ(50deg); */
-        /* transform: rotateZ(0); */
-        width: 200px;
-        height: 200px;
-        /* border-radius: 200px; */
-        background: wheat;
-      }
-      .domresize-right {
-        position: absolute;
-        top: 0;
-        right: -5px;
-        width: 10px;
-        height: 100%;
-        background: gold;
-        cursor: e-resize;
-      }
-      .domresize-bottom {
-        position: absolute;
-        bottom: -5px;
-        left: 0;
-        width: 100%;
-        height: 10px;
-        background: green;
-        cursor: n-resize;
-      }
-      .domresize-both {
-        position: absolute;
-        bottom: -5px;
-        right: -5px;
-        width: 10px;
-        height: 10px;
-        background: gray;
-        cursor: nwse-resize;
-      }
-      
-      
     </style>
   </head>
   <body>
-    <!-- <input type="text"> -->
     <div style="padding: 20px">
-      <div class="box">
-        <div id="right" data-control="right" class="domresize-right"></div>
-        <div id="bottom" data-control="bottom" class="domresize-bottom"></div>
-        <div id="both" data-control="both" class="domresize-both"></div>
-      </div>
-
       <div class="testbox"></div>
-
-      <!-- <textarea></textarea> -->
     </div>
 
     <button id="destroy">销毁</button>
-    <div>恋爱ing</div>
     <script src="./dist/DomReSize.iife.js"></script>
     <script>
       const testbox = document.querySelector('.testbox')
-      const t = new DomReSize(
-        testbox, 
-        {
-          width: [0, 500],
-          proportional: false,
-          control: [
-            'bottom',
-            {
-              name: 'right',
-              disabled: false,
-              styles: {
-                position: 'absolute',
-                top: 0,
-                right: '-5px',
-                width: '10px',
-                height: '100%',
-                background: 'url("./3.webp") 0 0 / 100% 100% no-repeat',
-                cursor: 'e-resize'
-              }
-            }
-          ]
-        }
-      )
-
-      t.setControlState('bottom', true, {
-        background: 'red'
+      const domresize = new DomReSize(testbox, {
+        width: [0, 500],
+        proportional: false,
+        control: [
+          'bottom',
+          {
+            name: 'right',
+            disabled: false,
+            styles: {
+              position: 'absolute',
+              top: 0,
+              right: '-5px',
+              width: '10px',
+              height: '100%',
+              cursor: 'e-resize',
+            },
+          },
+        ],
       })
-      
-      // let flag = false
-      // let direction
-      // let startPoint = {
-      //   x: 0,
-      //   y: 0
-      // }
-      
-      // const box = document.querySelector('.box')
 
-      // const right = document.querySelector('#right')
-      // const bottom = document.querySelector('#bottom')
+      domresize.setControlState('bottom', true, {
+        background: 'red',
+      })
 
+      domresize.setControlState('right', false)
 
-      // box.addEventListener('mousedown', (e) => {
+      domresize.on('end', (direction, dom) => {
+        console.log('end', direction, dom)
+      })
 
-      //   flag = true
-      //   direction = e.target.getAttribute('data-control')
-      //   startPoint = {
-      //     x: e.screenX,
-      //     y: e.screenY
-      //   }
-        
-      //   document.addEventListener('mousemove', (e) => {
-      //     if (!flag) return
-      //     let w = e.screenX - startPoint.x
-      //     let h = e.screenY - startPoint.y
-
-      //     startPoint = {
-      //       x: e.screenX,
-      //       y: e.screenY
-      //     }
-
-      //     if (direction === 'right') {
-      //       box.style.width = box.clientWidth + w + 'px'
-      //       return
-      //     } 
-          
-      //     if (direction === 'bottom') {
-      //       box.style.height = box.clientHeight + h + 'px'
-      //       return
-      //     }
-
-      //     if (direction === 'both') {
-      //       box.style.width = `${box.clientWidth + w}px`
-      //       box.style.height = `${box.clientHeight + h}px`
-      //       return
-      //     }
-
-          
-      //   })
-
-      // })
-
-      // right.addEventListener('mousedown', (e) => {
-      //   console.log(e)
-      //   flag = true
-      //   startPoint = {
-      //     x: e.screenX,
-      //     y: e.screenY
-      //   }
-
-      //   document.addEventListener('mousemove', (e) => {
-      //     if (!flag) return
-      //     let w = e.screenX - startPoint.x
-      //     let h = e.screenY - startPoint.y
-
-      //     console.log(box, box.clientWidth)
-      //     box.style.width = box.clientWidth + w + 'px'
-
-      //     startPoint = {
-      //       x: e.screenX,
-      //       y: e.screenY
-      //     }
-      //   })
-      // })
-
-      // document.addEventListener('mouseup', (e) => {
-      //   flag = false
-      //   startPoint = {
-      //     x: 0,
-      //     y: 0
-      //   }
-
-      // })
-
+      document.querySelector('#destroy').addEventListener('click', () => {
+        domresize.destroy()
+      })
     </script>
   </body>
 </html>
