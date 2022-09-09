@@ -5,7 +5,7 @@ dom 节点缩放插件
 ## 安装
 
 ```
-npm install dom-resize
+npm install dom-zoom
 ```
 
 ## 使用
@@ -15,7 +15,7 @@ npm install dom-resize
 ```
 
 ```javascript
-import DomZoom from 'dom-resize'
+import DomZoom from 'dom-zoom'
 
 // 初始化
 const dom = new DomZoom(document.querySelector('.box'))
