@@ -1,10 +1,10 @@
 {
-  "name": "dom-resize",
-  "version": "1.1.1",
-  "description": "转盘旋转手势插件",
-  "homepage": "https://github.com/vue-componet/turntable-gesture",
-  "main": "dist/TurntableGesture.cjs.js",
-  "module": "dist/TurntableGesture.esm.js",
+  "name": "dom-zoom",
+  "version": "1.0.0",
+  "description": "节点缩放改变大小插件",
+  "homepage": "https://github.com/vue-componet/dom-zoom",
+  "main": "dist/DomZoom.cjs.js",
+  "module": "dist/DomZoom.esm.js",
   "scripts": {
     "dev": "npm run lint && rollup --watch --config rollup.config.js",
     "build": "npm run lint && rollup --config rollup.config.js",

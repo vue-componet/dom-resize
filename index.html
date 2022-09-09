@@ -29,12 +29,12 @@
     </div>
 
     <button id="destroy">销毁</button>
-    <script src="./dist/DomReSize.iife.js"></script>
+    <script src="./dist/DomZoom.iife.js"></script>
     <script>
       const testbox = document.querySelector('.testbox')
-      const domresize = new DomReSize(testbox, {
+      const domzoom = new DomZoom(testbox, {
         width: [0, 500],
-        proportional: false,
+        proportional: true,
         control: [
           'bottom',
           {
@@ -52,20 +52,20 @@
         ],
       })
 
-      domresize.setControlState('bottom', true, {
+      domzoom.setControlState('bottom', true, {
         background: 'red',
       })
 
-      domresize.setAllControlState(false, false)
+      // domzoom.setAllControlState(false, false)
 
-      // domresize.setControlState('right', false)
+      // domzoom.setControlState('right', false)
 
-      domresize.on('end', (direction, dom) => {
+      domzoom.on('end', (direction, dom) => {
         console.log('end', direction, dom)
       })
 
       document.querySelector('#destroy').addEventListener('click', () => {
-        domresize.destroy()
+        domzoom.destroy()
       })
     </script>
   </body>

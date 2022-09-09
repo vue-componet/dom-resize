@@ -11,26 +11,26 @@ export default {
   output: [
     // node服务端使用
     {
-      file: 'dist/DomReSize.cjs.js',
+      file: 'dist/DomZoom.cjs.js',
       format: 'cjs',
       exports: 'auto',
     },
     // 浏览器使用
     {
-      file: 'dist/DomReSize.iife.js',
+      file: 'dist/DomZoom.iife.js',
       format: 'iife',
-      name: 'DomReSize',
+      name: 'DomZoom',
     },
     // es模块
     {
-      file: 'dist/DomReSize.esm.js',
+      file: 'dist/DomZoom.esm.js',
       format: 'es',
     },
     // 浏览器和node都可使用
     {
-      file: 'dist/DomReSize.umd.js',
+      file: 'dist/DomZoom.umd.js',
       format: 'umd',
-      name: 'DomReSize',
+      name: 'DomZoom',
     },
   ],
   plugins: [
