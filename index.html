@@ -56,7 +56,9 @@
         background: 'red',
       })
 
-      domresize.setControlState('right', false)
+      domresize.setAllControlState(false, false)
+
+      // domresize.setControlState('right', false)
 
       domresize.on('end', (direction, dom) => {
         console.log('end', direction, dom)

@@ -89,10 +89,11 @@ export default class DomReSize {
         const control_dom = this.$element.querySelector(
           `div[data-control="${controlName}"]`
         )
+
         const styles =
           typeof controlDom === 'boolean'
             ? CONTROL_STYLES_OPTIONS[controlName]
-            : Object.assign(CONTROL_STYLES_OPTIONS[controlName], controlDom)
+            : controlDom
 
         if (control_dom) {
           setStyles(control_dom, styles)
@@ -108,6 +109,28 @@ export default class DomReSize {
     if (controlDom) {
       this._reomveControl(controlName)
     }
+  }
+
+  /**
+   * 设置所有控制器的状态
+   * @param {*} state 控制器状态，true: 启用，false: 禁用
+   * @param {*} controlDom 深度操控控制器dom
+   */
+  setAllControlState(state, controlDom = true) {
+    this.options.control.forEach((control) => {
+      if (typeof control === 'string') {
+        this.setControlState(control, state, controlDom)
+        return
+      } else {
+        const controlName = control.name
+        this.setControlState(
+          controlName,
+          state,
+          controlDom ? control.styles : controlDom
+        )
+        return
+      }
+    })
   }
 
   // 初始化节点
@@ -147,20 +170,12 @@ export default class DomReSize {
 
     this.options.control.forEach((control) => {
       if (typeof control === 'string') {
-        this.setControlState(control, true, false)
-        this._createControl(control, CONTROL_STYLES_OPTIONS[control])
+        this.setControlState(control, true, true)
         return
       } else {
         const controlName = control.name
-
         const state = control.disabled
-
-        const styles = Object.assign(
-          CONTROL_STYLES_OPTIONS[controlName],
-          control.styles
-        )
-        this.setControlState(controlName, !state, false)
-        this._createControl(controlName, styles)
+        this.setControlState(controlName, !state, control.styles)
         return
       }
     })
