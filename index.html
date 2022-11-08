@@ -18,7 +18,7 @@
         width: 200px;
         height: 200px;
         padding: 10px;
-        margin: 10px;
+        margin: 100px;
         background: wheat;
       }
     </style>
@@ -33,9 +33,16 @@
     <script>
       const testbox = document.querySelector('.testbox')
       const domzoom = new DomZoom(testbox, {
-        width: [0, 500],
-        proportional: true,
+        width: [100, 500],
+        height: [100, 300],
+        proportional: false,
         control: [
+          'left',
+          'top',
+          'topLeft',
+          'topRight',
+          'bottomLeft',
+          'bottomRight',
           'bottom',
           {
             name: 'right',
@@ -46,7 +53,7 @@
               right: '-5px',
               width: '10px',
               height: '100%',
-              cursor: 'e-resize',
+              cursor: 'ew-resize',
             },
           },
         ],

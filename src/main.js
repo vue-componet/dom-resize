@@ -1,69 +1,5 @@
 import { getStyle, setStyles, throttle } from './utils'
 
-const CONTROL_STYLES_OPTIONS = {
-  right: {
-    position: 'absolute',
-    top: 0,
-    right: '-5px',
-    zIndex: 99,
-    width: '10px',
-    height: '100%',
-    cursor: 'e-resize',
-  },
-  bottom: {
-    position: 'absolute',
-    bottom: '-5px',
-    left: 0,
-    zIndex: 99,
-    width: '100%',
-    height: '10px',
-    cursor: 'n-resize',
-  },
-  both: {
-    position: 'absolute',
-    bottom: '-10px',
-    right: '-10px',
-    zIndex: 99,
-    width: '20px',
-    height: '20px',
-    cursor: 'nwse-resize',
-  },
-}
-
-const CONTROL_EVENT = {
-  right: function (dom, width, height, proportional) {
-    dom.style.width = width + 'px'
-    // 等比缩放
-    if (proportional) {
-      height = width / proportional
-      dom.style.height = height + 'px'
-    }
-  },
-
-  bottom: function (dom, width, height, proportional) {
-    dom.style.height = height + 'px'
-    // 等比缩放
-    if (proportional) {
-      width = height * proportional
-      dom.style.width = width + 'px'
-    }
-  },
-
-  both: function (dom, width, height, proportional) {
-    // 等比缩放
-    if (proportional) {
-      if (width >= height) {
-        width = height * proportional
-      } else {
-        height = width / proportional
-      }
-    }
-
-    dom.style.width = `${width}px`
-    dom.style.height = `${width}px`
-  },
-}
-
 export default class DomReSize {
   constructor(element, options) {
     this._initOptions(options)
@@ -92,7 +28,7 @@ export default class DomReSize {
 
         const styles =
           typeof controlDom === 'boolean'
-            ? CONTROL_STYLES_OPTIONS[controlName]
+            ? DomReSize.CONTROL_STYLES_OPTIONS[controlName]
             : controlDom
 
         if (control_dom) {
@@ -133,6 +69,32 @@ export default class DomReSize {
     })
   }
 
+  // 用户绑定回调事件
+  on(handlerName, fn) {
+    this.callBackListener[handlerName] = fn
+  }
+
+  // 用户注销回调事件
+  off(handlerName) {
+    this.callBackListener[handlerName] = null
+  }
+
+  // 销毁
+  destroy() {
+    this.$element.removeEventListener('mousedown', this.handleStart)
+
+    this._reomveControl('right')
+    this._reomveControl('bottom')
+    this._reomveControl('bottomRight')
+
+    this.direction = null
+    this.flag = null
+    this.callBackListener = null
+    this.options = null
+    this.startPoint = null
+    this.transformMatrix = null
+  }
+
   // 初始化节点
   _initElement(element) {
     if (typeof element === 'string') {
@@ -158,7 +120,7 @@ export default class DomReSize {
         width: [0, Infinity], // ?宽度的缩放范围
         height: [0, Infinity], // ?
         proportional: false,
-        control: ['right', 'bottom', 'both'],
+        control: ['left', 'right', 'bottom', 'bottomRight'],
       },
       options
     )
@@ -187,6 +149,8 @@ export default class DomReSize {
     this.handleMove = this._move()
     this.handleEnd = this._end.bind(this)
     this.callBackListener = {}
+    // this.translateX = 0
+    // this.translateY = 0
 
     this.$element.addEventListener('mousedown', this.handleStart)
   }
@@ -203,6 +167,16 @@ export default class DomReSize {
       y: e.screenY,
     }
 
+    this.boundRect = this.$element.getBoundingClientRect()
+
+    const matrixStr = getStyle(this.$element, 'transform')
+    if (matrixStr !== 'none') {
+      const matrixExec = /\((.*)\)/.exec(matrixStr)
+      this.transformMatrix = matrixExec[1].split(',')
+    } else {
+      this.transformMatrix = [1, 0, 0, 1, 0, 0]
+    }
+
     document.addEventListener('mousemove', this.handleMove)
     document.addEventListener('mouseup', this.handleEnd, { once: true })
 
@@ -217,39 +191,23 @@ export default class DomReSize {
       const direction = this.direction
 
       if (!this.flag) return
-      if (!['right', 'bottom', 'both'].includes(direction)) return
+      if (!['left', 'right', 'top', 'bottom', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight'].includes(direction)) return
 
       const dom = this.$element
       let startPoint = this.startPoint
 
       const proportional = this.options.proportional
-      const opt_width = this.options.width
-      const opt_height = this.options.height
+      
 
-      let w = e.screenX - startPoint.x
-      let h = e.screenY - startPoint.y
+      let difference_w = e.screenX - startPoint.x
+      let difference_h = e.screenY - startPoint.y
 
       this.startPoint = {
         x: e.screenX,
         y: e.screenY,
       }
 
-      let width = dom.offsetWidth + w
-      let height = dom.offsetHeight + h
-
-      if (width < opt_width[0]) {
-        width = opt_width[0]
-      } else if (width > opt_width[1]) {
-        width = opt_width[1]
-      }
-
-      if (height < opt_height[0]) {
-        height = opt_height[0]
-      } else if (height > opt_height[1]) {
-        height = opt_height[1]
-      }
-
-      CONTROL_EVENT[direction](dom, width, height, proportional)
+      DomReSize.CONTROL_EVENT[direction].call(this, dom, { differenceW: difference_w, differenceH: difference_h, proportional })
 
       this.callBackListener['move']?.(direction, dom)
     }, 16)
@@ -265,29 +223,43 @@ export default class DomReSize {
     this.callBackListener['end']?.(this.direction, this.$element)
   }
 
-  // 用户绑定回调事件
-  on(handlerName, fn) {
-    this.callBackListener[handlerName] = fn
-  }
+  /**
+   * 区域限制
+   * @param {number | undefined} width 
+   * @param {number | undefined} height 
+   */
+  _regionalRestrictions({width, height, computedW, computedH }) {
+    const opt_width = this.options.width
+    const opt_height = this.options.height
 
-  // 用户注销回调事件
-  off(handlerName) {
-    this.callBackListener[handlerName] = null
-  }
+    let translateX = this.translateX
+    let translateY = this.translateY
 
-  // 销毁
-  destroy() {
-    this.$element.removeEventListener('mousedown', this.handleStart)
+    if (width) {
+      if (width < opt_width[0]) {
+        width = opt_width[0]
+      } else if (width > opt_width[1]) {
+        width = opt_width[1]
+      }
 
-    this._reomveControl('right')
-    this._reomveControl('bottom')
-    this._reomveControl('both')
+      if (computedW) {
+        translateX = this.boundRect.width - width
+      }
+    }
 
-    this.direction = null
-    this.flag = null
-    this.callBackListener = null
-    this.options = null
-    this.startPoint = null
+    if (height) {
+      if (height < opt_height[0]) {
+        height = opt_height[0]
+      } else if (height > opt_height[1]) {
+        height = opt_height[1]
+      }
+
+      if (computedH) {
+        translateY = this.boundRect.height - height
+      }
+    }
+
+    return { width, height, translateX, translateY }
   }
 
   /**
@@ -344,4 +316,225 @@ export default class DomReSize {
     setStyles(control_dom, styles)
     this.$element.append(control_dom)
   }
+}
+
+
+DomReSize.CONTROL_STYLES_OPTIONS = {
+  left: {
+    position: 'absolute',
+    top: 0,
+    left: '-5px',
+    zIndex: 99,
+    width: '10px',
+    height: '100%',
+    cursor: 'ew-resize',
+  },
+  right: {
+    position: 'absolute',
+    top: 0,
+    right: '-5px',
+    zIndex: 99,
+    width: '10px',
+    height: '100%',
+    cursor: 'ew-resize',
+  },
+  top: {
+    position: 'absolute',
+    top: '-5px',
+    left: 0,
+    zIndex: 99,
+    width: '100%',
+    height: '10px',
+    cursor: 'n-resize',
+  },
+  bottom: {
+    position: 'absolute',
+    bottom: '-5px',
+    left: 0,
+    zIndex: 99,
+    width: '100%',
+    height: '10px',
+    cursor: 'n-resize',
+  },
+  topLeft: {
+    position: 'absolute',
+    top: '-10px',
+    left: '-10px',
+    zIndex: 99,
+    width: '20px',
+    height: '20px',
+    cursor: 'nwse-resize',
+  },
+  bottomRight: {
+    position: 'absolute',
+    bottom: '-10px',
+    right: '-10px',
+    zIndex: 99,
+    width: '20px',
+    height: '20px',
+    cursor: 'nwse-resize',
+  },
+  bottomLeft: {
+    position: 'absolute',
+    bottom: '-10px',
+    left: '-10px',
+    zIndex: 99,
+    width: '20px',
+    height: '20px',
+    cursor: 'nesw-resize',
+  },
+  topRight: {
+    position: 'absolute',
+    top: '-10px',
+    right: '-10px',
+    zIndex: 99,
+    width: '20px',
+    height: '20px',
+    cursor: 'nesw-resize',
+  },
+}
+
+DomReSize.CONTROL_EVENT = {
+  left: function (dom, { differenceW, proportional }) {
+    let w = dom.offsetWidth - differenceW
+    let { width, translateX } = this._regionalRestrictions({ width: w, computedW: true })
+    // this.translateX = translateX
+
+    dom.style.width = `${width}px`
+    let matrix = [...this.transformMatrix]
+    matrix[4] = +this.transformMatrix[4] + translateX
+    dom.style.transform = `matrix(${matrix.join(',')})`
+
+    // 等比缩放
+    if (proportional) {
+      let height = width / proportional
+      dom.style.height = `${height}px`
+    }
+  },
+
+  right: function (dom, { differenceW, proportional }) {
+    let w = dom.offsetWidth + differenceW
+    let { width } = this._regionalRestrictions({ width: w })
+
+    dom.style.width = `${width}px`
+    // 等比缩放
+    if (proportional) {
+      let height = width / proportional
+      dom.style.height = `${height}px`
+    }
+  },
+
+  top: function (dom, { differenceH, proportional }) {
+    let h = dom.offsetHeight - differenceH
+    let { height, translateY } = this._regionalRestrictions({ height: h, computedH: true })
+    this.translateY = translateY
+
+    dom.style.height = `${height}px`
+    let matrix = [...this.transformMatrix]
+    matrix[5] = +this.transformMatrix[5] + translateY
+    dom.style.transform = `matrix(${matrix.join(',')})`
+
+    // 等比缩放
+    if (proportional) {
+      let width = height * proportional
+      dom.style.width = `${width}px`
+    }
+  },
+
+  bottom: function (dom, { differenceH, proportional }) {
+    let h = dom.offsetHeight + differenceH
+    let { height } = this._regionalRestrictions({ height: h })
+
+    dom.style.height = `${height}px`
+    // 等比缩放
+    if (proportional) {
+      let width = height * proportional
+      dom.style.width = `${width}px`
+    }
+  },
+
+  topLeft: function (dom, { differenceW, differenceH, proportional }) {
+    let w = dom.offsetWidth - differenceW
+    let h = dom.offsetHeight - differenceH
+    let { width, height, translateX, translateY } = this._regionalRestrictions({ width: w, height: h, computedW: true, computedH: true })
+    
+    let matrix = [...this.transformMatrix]
+    matrix[4] = +this.transformMatrix[4] + translateX
+    matrix[5] = +this.transformMatrix[5] + translateY
+    dom.style.transform = `matrix(${matrix.join(',')})`
+
+    // 等比缩放
+    if (proportional) {
+      if (width >= height) {
+        width = height * proportional
+      } else {
+        height = width / proportional
+      }
+    }
+
+    dom.style.width = `${width}px`
+    dom.style.height = `${width}px`
+  },
+
+  topRight: function (dom, { differenceW, differenceH, proportional }) {
+    let w = dom.offsetWidth + differenceW
+    let h = dom.offsetHeight - differenceH
+    let { width, height, translateY } = this._regionalRestrictions({ width: w, height: h, computedW: true, computedH: true })
+    
+    let matrix = [...this.transformMatrix]
+    matrix[5] = +this.transformMatrix[5] + translateY
+    dom.style.transform = `matrix(${matrix.join(',')})`
+
+    // 等比缩放
+    if (proportional) {
+      if (width >= height) {
+        width = height * proportional
+      } else {
+        height = width / proportional
+      }
+    }
+
+    dom.style.width = `${width}px`
+    dom.style.height = `${width}px`
+  },
+
+  bottomLeft: function (dom, { differenceW, differenceH, proportional }) {
+    let w = dom.offsetWidth - differenceW
+    let h = dom.offsetHeight + differenceH
+    let { width, height, translateX } = this._regionalRestrictions({ width: w, height: h, computedW: true, computedH: true })
+    
+    let matrix = [...this.transformMatrix]
+    matrix[4] = +this.transformMatrix[4] + translateX
+    dom.style.transform = `matrix(${matrix.join(',')})`
+
+    // 等比缩放
+    if (proportional) {
+      if (width >= height) {
+        width = height * proportional
+      } else {
+        height = width / proportional
+      }
+    }
+
+    dom.style.width = `${width}px`
+    dom.style.height = `${width}px`
+  },
+
+  bottomRight: function (dom, { differenceW, differenceH, proportional }) {
+    let w = dom.offsetWidth + differenceW
+    let h = dom.offsetHeight + differenceH
+    let { width, height } = this._regionalRestrictions({ width: w, height: h })
+    
+    // 等比缩放
+    if (proportional) {
+      if (width >= height) {
+        width = height * proportional
+      } else {
+        height = width / proportional
+      }
+    }
+
+    dom.style.width = `${width}px`
+    dom.style.height = `${width}px`
+  },
 }

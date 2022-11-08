@@ -80,7 +80,7 @@ dom.setAllControlState(false)
 | width        | Array          | [0, Infinity]               | -      | 宽度的缩放范围，单位 px                                                             |
 | height       | Array          | [0, Infinity]               | -      | 高度度的缩放范围，单位 px                                                           |
 | proportional | Number/Boolean | false                       | -      | 是否按比例缩放，当为 false 时宽和高无关联，当设置为数值时，宽和高将按照设定比例缩放 |
-| control      | Array          | ['right', 'bottom', 'both'] | -      | 渲染的控制器及配置                                                                  |
+| control      | Array          | ['left', 'right', 'top', 'bottom', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight'] | -      | 渲染的控制器及配置                                                                  |
 
 ## 回调函数
 
