@@ -91,8 +91,9 @@ export default class DomReSize {
     this.flag = null
     this.callBackListener = null
     this.options = null
-    this.startPoint = null
+    this.currentPoint = null
     this.transformMatrix = null
+    this.proportional = 0
   }
 
   // 初始化节点
@@ -111,6 +112,8 @@ export default class DomReSize {
       init_styles['position'] = 'relative'
     }
     setStyles(this.$element, init_styles)
+
+    this._computedProportional()
   }
 
   // 初始化配置
@@ -149,8 +152,6 @@ export default class DomReSize {
     this.handleMove = this._move()
     this.handleEnd = this._end.bind(this)
     this.callBackListener = {}
-    // this.translateX = 0
-    // this.translateY = 0
 
     this.$element.addEventListener('mousedown', this.handleStart)
   }
@@ -162,10 +163,6 @@ export default class DomReSize {
     if (!direction_control_state) return
 
     this.flag = true
-    this.startPoint = {
-      x: e.screenX,
-      y: e.screenY,
-    }
 
     this.boundRect = this.$element.getBoundingClientRect()
 
@@ -194,20 +191,20 @@ export default class DomReSize {
       if (!['left', 'right', 'top', 'bottom', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight'].includes(direction)) return
 
       const dom = this.$element
-      let startPoint = this.startPoint
 
       const proportional = this.options.proportional
       
-
-      let difference_w = e.screenX - startPoint.x
-      let difference_h = e.screenY - startPoint.y
-
-      this.startPoint = {
-        x: e.screenX,
-        y: e.screenY,
+      this.scrollInfo = {
+        top: document.documentElement.scrollTop || document.body.scrollTop,
+        left: document.documentElement.scrollLeft || document.body.scrollLeft
       }
 
-      DomReSize.CONTROL_EVENT[direction].call(this, dom, { differenceW: difference_w, differenceH: difference_h, proportional })
+      this.currentPoint = {
+        x: e.pageX - this.scrollInfo.left,
+        y: e.pageY - this.scrollInfo.top,
+      }
+
+      DomReSize.CONTROL_EVENT[direction].call(this)
 
       this.callBackListener['move']?.(direction, dom)
     }, 16)
@@ -228,38 +225,119 @@ export default class DomReSize {
    * @param {number | undefined} width 
    * @param {number | undefined} height 
    */
-  _regionalRestrictions({width, height, computedW, computedH }) {
+  _regionalRestrictions({width, height, controlName }) {
     const opt_width = this.options.width
     const opt_height = this.options.height
+    const proportional = this.options.proportional
 
-    let translateX = this.translateX
-    let translateY = this.translateY
+    let translateX = 0
+    let translateY = 0
 
-    if (width) {
-      if (width < opt_width[0]) {
-        width = opt_width[0]
-      } else if (width > opt_width[1]) {
-        width = opt_width[1]
+    // 等比缩放
+    if (proportional) {
+      if (['left', 'right', 'topRight', 'bottomRight'].includes(controlName)) {
+        height = width / this.proportional
       }
 
-      if (computedW) {
-        translateX = this.boundRect.width - width
+      if (['top', 'bottom', 'topLeft', 'bottomLeft'].includes(controlName)) {
+        width = height * this.proportional
       }
     }
 
-    if (height) {
-      if (height < opt_height[0]) {
-        height = opt_height[0]
-      } else if (height > opt_height[1]) {
-        height = opt_height[1]
-      }
+    if (width < opt_width[0]) {
+      width = opt_width[0]
+    } else if (width > opt_width[1]) {
+      width = opt_width[1]
+    }
 
-      if (computedH) {
-        translateY = this.boundRect.height - height
-      }
+    if (height < opt_height[0]) {
+      height = opt_height[0]
+    } else if (height > opt_height[1]) {
+      height = opt_height[1]
+    }
+    
+
+    if (['topLeft', 'bottomLeft', 'left'].includes(controlName)) {
+      translateX = this.boundRect.width - width
+    }
+    if (['topLeft', 'topRight', 'top'].includes(controlName)) {
+      translateY = this.boundRect.height - height
     }
 
     return { width, height, translateX, translateY }
+  }
+
+  // 设置dom位置信息
+  _setDomStyle(info) {
+    const dom = this.$element
+    let matrix = [...this.transformMatrix]
+    if (info.translateX) {
+      matrix[4] = +this.transformMatrix[4] + info.translateX
+    }
+    if (info.translateY) {
+      matrix[5] = +this.transformMatrix[5] + info.translateY
+    }
+    dom.style.transform = `matrix(${matrix.join(',')})`
+
+    dom.style.width = `${info.width}px`
+    dom.style.height = `${info.height}px`
+  }
+
+  // 计算当前dom宽和高的比例
+  _computedProportional() {
+    if (this.options.proportional) {
+      const rect = this.$element.getBoundingClientRect()
+      const opt_width = this.options.width
+      const opt_height = this.options.height
+
+      if (rect.width < opt_width[0]) {
+        rect.width = opt_width[0]
+      } else if (rect.width > opt_width[1]) {
+        rect.width = opt_width[1]
+      }
+  
+      if (rect.height < opt_height[0]) {
+        rect.height = opt_height[0]
+      } else if (rect.height > opt_height[1]) {
+        rect.height = opt_height[1]
+      }
+      this.proportional = (rect.width / rect.height).toFixed(4)
+
+      if (this.proportional < 1) {
+        let width_max = this.options.height[1] * this.proportional
+        let width_min = this.options.height[0] * this.proportional
+        this.options.width = [width_min, width_max]
+      } else {
+        let height_max = this.options.width[1] / this.proportional
+        let height_min = this.options.width[0] / this.proportional
+        this.options.height = [height_min, height_max]
+      }
+    }
+
+    const padding = this._getOutside('padding')
+    const border = this._getOutside('border')
+    this.options.width[0] += padding[1] + padding[3] + border[1] + border[3]
+    this.options.height[0] += padding[0] + padding[2] + border[0] + border[2]
+   
+  }
+
+  // 获取dom外围属性值
+  _getOutside(attribute) {
+    const left = getStyle(this.$element, 'padding-left')
+    const right = getStyle(this.$element, 'padding-right')
+    const top = getStyle(this.$element, 'padding-top')
+    const bottom = getStyle(this.$element, 'padding-bottom')
+
+    let arr = ['top', 'right', 'bottom', 'left']
+    let result = []
+
+    for (let i = 0; i < arr.length; i++) {
+      const style = getStyle(this.$element, `${attribute}-${arr[i]}`)
+      const num = style.match(/\d+/)
+      result[i] = +num[0]
+    }
+
+    return result
   }
 
   /**
@@ -345,7 +423,7 @@ DomReSize.CONTROL_STYLES_OPTIONS = {
     zIndex: 99,
     width: '100%',
     height: '10px',
-    cursor: 'n-resize',
+    cursor: 'ns-resize',
   },
   bottom: {
     position: 'absolute',
@@ -354,7 +432,7 @@ DomReSize.CONTROL_STYLES_OPTIONS = {
     zIndex: 99,
     width: '100%',
     height: '10px',
-    cursor: 'n-resize',
+    cursor: 'ns-resize',
   },
   topLeft: {
     position: 'absolute',
@@ -395,146 +473,99 @@ DomReSize.CONTROL_STYLES_OPTIONS = {
 }
 
 DomReSize.CONTROL_EVENT = {
-  left: function (dom, { differenceW, proportional }) {
-    let w = dom.offsetWidth - differenceW
-    let { width, translateX } = this._regionalRestrictions({ width: w, computedW: true })
-    // this.translateX = translateX
+  left: function () {
+    let w = this.boundRect.right - this.currentPoint.x
+    let h = this.boundRect.height
+    let { width, height, translateX } = this._regionalRestrictions({ width: w, height: h, controlName: 'left' })
 
-    dom.style.width = `${width}px`
-    let matrix = [...this.transformMatrix]
-    matrix[4] = +this.transformMatrix[4] + translateX
-    dom.style.transform = `matrix(${matrix.join(',')})`
-
-    // 等比缩放
-    if (proportional) {
-      let height = width / proportional
-      dom.style.height = `${height}px`
-    }
+    this._setDomStyle({
+      width,
+      height,
+      translateX
+    })
   },
 
-  right: function (dom, { differenceW, proportional }) {
-    let w = dom.offsetWidth + differenceW
-    let { width } = this._regionalRestrictions({ width: w })
+  right: function () {
+    let w = this.currentPoint.x - this.boundRect.left
+    let h = this.boundRect.height
+    let { width, height } = this._regionalRestrictions({ width: w, height: h, controlName: 'right' })
 
-    dom.style.width = `${width}px`
-    // 等比缩放
-    if (proportional) {
-      let height = width / proportional
-      dom.style.height = `${height}px`
-    }
+    this._setDomStyle({
+      width,
+      height,
+    })
   },
 
-  top: function (dom, { differenceH, proportional }) {
-    let h = dom.offsetHeight - differenceH
-    let { height, translateY } = this._regionalRestrictions({ height: h, computedH: true })
-    this.translateY = translateY
-
-    dom.style.height = `${height}px`
-    let matrix = [...this.transformMatrix]
-    matrix[5] = +this.transformMatrix[5] + translateY
-    dom.style.transform = `matrix(${matrix.join(',')})`
-
-    // 等比缩放
-    if (proportional) {
-      let width = height * proportional
-      dom.style.width = `${width}px`
-    }
-  },
-
-  bottom: function (dom, { differenceH, proportional }) {
-    let h = dom.offsetHeight + differenceH
-    let { height } = this._regionalRestrictions({ height: h })
-
-    dom.style.height = `${height}px`
-    // 等比缩放
-    if (proportional) {
-      let width = height * proportional
-      dom.style.width = `${width}px`
-    }
-  },
-
-  topLeft: function (dom, { differenceW, differenceH, proportional }) {
-    let w = dom.offsetWidth - differenceW
-    let h = dom.offsetHeight - differenceH
-    let { width, height, translateX, translateY } = this._regionalRestrictions({ width: w, height: h, computedW: true, computedH: true })
+  top: function () {
+    let w = this.boundRect.width
+    let h = this.boundRect.bottom - this.currentPoint.y
+    let { width, height, translateY } = this._regionalRestrictions({ width: w, height: h, controlName: 'top' })
     
-    let matrix = [...this.transformMatrix]
-    matrix[4] = +this.transformMatrix[4] + translateX
-    matrix[5] = +this.transformMatrix[5] + translateY
-    dom.style.transform = `matrix(${matrix.join(',')})`
+    this._setDomStyle({
+      width,
+      height,
+      translateY
+    })
 
-    // 等比缩放
-    if (proportional) {
-      if (width >= height) {
-        width = height * proportional
-      } else {
-        height = width / proportional
-      }
-    }
-
-    dom.style.width = `${width}px`
-    dom.style.height = `${width}px`
   },
 
-  topRight: function (dom, { differenceW, differenceH, proportional }) {
-    let w = dom.offsetWidth + differenceW
-    let h = dom.offsetHeight - differenceH
-    let { width, height, translateY } = this._regionalRestrictions({ width: w, height: h, computedW: true, computedH: true })
-    
-    let matrix = [...this.transformMatrix]
-    matrix[5] = +this.transformMatrix[5] + translateY
-    dom.style.transform = `matrix(${matrix.join(',')})`
+  bottom: function () {
+    let w = this.boundRect.width
+    let h = this.currentPoint.y - this.boundRect.top 
+    let { width, height } = this._regionalRestrictions({ width: w, height: h, controlName: 'bottom' })
 
-    // 等比缩放
-    if (proportional) {
-      if (width >= height) {
-        width = height * proportional
-      } else {
-        height = width / proportional
-      }
-    }
-
-    dom.style.width = `${width}px`
-    dom.style.height = `${width}px`
+    this._setDomStyle({
+      width,
+      height,
+    })
   },
 
-  bottomLeft: function (dom, { differenceW, differenceH, proportional }) {
-    let w = dom.offsetWidth - differenceW
-    let h = dom.offsetHeight + differenceH
-    let { width, height, translateX } = this._regionalRestrictions({ width: w, height: h, computedW: true, computedH: true })
+  topLeft: function () {
+    let w = this.boundRect.right - this.currentPoint.x
+    let h = this.boundRect.bottom - this.currentPoint.y
+    let { width, height, translateX, translateY } = this._regionalRestrictions({ width: w, height: h, controlName: 'topLeft' })
     
-    let matrix = [...this.transformMatrix]
-    matrix[4] = +this.transformMatrix[4] + translateX
-    dom.style.transform = `matrix(${matrix.join(',')})`
-
-    // 等比缩放
-    if (proportional) {
-      if (width >= height) {
-        width = height * proportional
-      } else {
-        height = width / proportional
-      }
-    }
-
-    dom.style.width = `${width}px`
-    dom.style.height = `${width}px`
+    this._setDomStyle({
+      width,
+      height,
+      translateX,
+      translateY
+    })
   },
 
-  bottomRight: function (dom, { differenceW, differenceH, proportional }) {
-    let w = dom.offsetWidth + differenceW
-    let h = dom.offsetHeight + differenceH
-    let { width, height } = this._regionalRestrictions({ width: w, height: h })
+  topRight: function () {
+    let w = this.currentPoint.x - this.boundRect.left
+    let h = this.boundRect.bottom - this.currentPoint.y
+    let { width, height, translateY } = this._regionalRestrictions({ width: w, height: h, controlName: 'topRight' })
     
-    // 等比缩放
-    if (proportional) {
-      if (width >= height) {
-        width = height * proportional
-      } else {
-        height = width / proportional
-      }
-    }
+    this._setDomStyle({
+      width,
+      height,
+      translateY
+    })
+  },
 
-    dom.style.width = `${width}px`
-    dom.style.height = `${width}px`
+  bottomLeft: function () {
+    let w = this.boundRect.right - this.currentPoint.x
+    let h = this.currentPoint.y - this.boundRect.top
+    let { width, height, translateX } = this._regionalRestrictions({ width: w, height: h, controlName: 'bottomLeft' })
+    
+    this._setDomStyle({
+      width,
+      height,
+      translateX
+    })
+
+  },
+
+  bottomRight: function () {
+    let w = this.currentPoint.x - this.boundRect.left
+    let h = this.currentPoint.y - this.boundRect.top
+    let { width, height } = this._regionalRestrictions({ width: w, height: h, controlName: 'bottomRight' })
+    
+    this._setDomStyle({
+      width,
+      height
+    })
   },
 }
