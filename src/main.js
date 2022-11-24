@@ -5,7 +5,7 @@ export default class DomReSize {
     this._initOptions(options)
     this._initElement(element)
     this._initControl()
-    this._addEventListener()
+    // this._addEventListener()
   }
 
   /**
@@ -131,6 +131,10 @@ export default class DomReSize {
 
   // 根据配置创建控制器
   _initControl() {
+    this.handleStart = this._start.bind(this)
+    this.handleMove = this._move()
+    this.handleEnd = this._end.bind(this)
+    this.callBackListener = {}
     this.controlState = {} // ?控制器状态
 
     this.options.control.forEach((control) => {
@@ -147,16 +151,12 @@ export default class DomReSize {
   }
 
   // 绑定事件
-  _addEventListener() {
-    this.handleStart = this._start.bind(this)
-    this.handleMove = this._move()
-    this.handleEnd = this._end.bind(this)
-    this.callBackListener = {}
-
-    this.$element.addEventListener('mousedown', this.handleStart)
+  _addEventListener(dom) {
+    dom.addEventListener('mousedown', this.handleStart)
   }
 
   _start(e) {
+    e.stopPropagation()
     this.direction = e.target.getAttribute('data-control')
 
     const direction_control_state = this.controlState[this.direction]
@@ -185,6 +185,7 @@ export default class DomReSize {
 
   _move() {
     return throttle((e) => {
+      e.stopPropagation()
       const direction = this.direction
 
       if (!this.flag) return
@@ -210,7 +211,8 @@ export default class DomReSize {
     }, 16)
   }
 
-  _end() {
+  _end(e) {
+    e.stopPropagation()
     this.flag = false
 
     this._setSelect(true)
@@ -393,6 +395,8 @@ export default class DomReSize {
 
     setStyles(control_dom, styles)
     this.$element.append(control_dom)
+
+    this._addEventListener(control_dom)
   }
 }
 
